@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TEST</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+// Scene setup
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.z = 6;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Canvas for terminal text
+const canvas = document.createElement('canvas');
+canvas.width = 1024;
+canvas.height = 512;
+const ctx = canvas.getContext('2d');
+ctx.fillStyle = 'black';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+ctx.fillStyle = '#00ff00';
+ctx.font = '20px monospace';
+
+const texture = new THREE.CanvasTexture(canvas);
+
+// CRT-like curved plane
+const width = 6;
+const height = 4;
+const segmentsX = 60;
+const segmentsY = 60;
+const geometry = new THREE.PlaneGeometry(width, height, segmentsX, segmentsY);
+const positions = geometry.attributes.position.array;
+
+for (let i = 0; i < positions.length; i += 3) {
+  const x = positions[i];
+  const y = positions[i + 1];
+  const r = Math.sqrt(Math.pow(x/(width/2),2) + Math.pow(y/(height/2),2));
+  positions[i + 2] = 0.6 * Math.cos(r * Math.PI/2); // smooth CRT-style bulge
+}
+geometry.attributes.position.needsUpdate = true;
+geometry.computeVertexNormals();
+
+
+// Use the canvas as material
+const material = new THREE.MeshBasicMaterial({ map: texture });
+const plane = new THREE.Mesh(geometry, material);
+scene.add(plane);
+
+// Terminal logic
+let lines = ["yo mista wite, we got it working"];
+let currentInput = "";
+
+function renderCanvas() {
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#00ff00';
+  ctx.font = '20px monospace';
+
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], 10, 30 + i*25);
+  }
+
+  // Draw current input
+  ctx.fillText("> " + currentInput + "_", 10, 30 + lines.length*25);
+
+  drawScanlines(ctx, canvas.width, canvas.height, 6); // spacing = 2px
+
+
+  texture.needsUpdate = true;
+}
+
+function drawScanlines(ctx, canvasWidth, canvasHeight, spacing = 2) {
+    ctx.strokeStyle = 'rgba(0,255,0,0.05)'; // subtle green lines
+    ctx.lineWidth = 1;
+    for (let y = 0; y < canvasHeight; y += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + 0.5); // 0.5 for sharper line
+        ctx.lineTo(canvasWidth, y + 0.5);
+        ctx.stroke();
+    }
+}
+
+
+
+// Command map with functions
+const commands = {
+
+// String commands
+
+  help: () => ["Available commands:", "HELP", "STATUS", "ABOUT", "CLEAR"],
+  status: () => ["All systems operational."],
+  about: () => ["Curved CRT terminal demo."],
+
+// Function commands
+
+  clear: () => { 
+    lines = [];  // clear the terminal lines
+    return ["Terminal cleared."]; // optional feedback
+  }
+};
+
+window.addEventListener('keydown', e => {
+  // Normal character input
+  if (e.key.length === 1) currentInput += e.key;
+
+  // Backspace
+  if (e.key === "Backspace") currentInput = currentInput.slice(0, -1);
+
+  // Enter / execute command
+  if (e.key === "Enter") {
+    const inputValue = currentInput.trim();
+    lines.push("> " + inputValue);
+
+    const commandFn = commands[inputValue.toLowerCase()];
+    if (commandFn) {
+      // Execute function; append returned lines if any
+      const result = commandFn();
+      if (result && result.length) result.forEach(line => lines.push(line));
+    } else if (inputValue !== "") {
+      lines.push("Unknown command: " + inputValue);
+    }
+
+    currentInput = "";
+
+    // Keep only last 15 lines
+    if (lines.length > 15) lines = lines.slice(lines.length - 15);
+  }
+
+  renderCanvas();
+});
+
+
+
+renderCanvas();
+
+// Render loop
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+animate();
+
+// Resize handling
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
