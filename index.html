@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>TEST</title>
 <style>
-  body { margin: 0; overflow: hidden; background: black; }
+  body { margin: 0; overflow: hidden; background: url(images/CRT.jpg); background-size: cover; background-position: center; background-repeat: no-repeat; }
   canvas { display: block; }
 </style>
 </head>
@@ -12,12 +12,36 @@
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
+// My const*s
+
+//const click = new Audio("sfx/click.mp3");
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let buffer;
+
+fetch("sfx/click.mp3")
+  .then(r => r.arrayBuffer())
+  .then(data => audioCtx.decodeAudioData(data))
+  .then(decoded => buffer = decoded);
+
+function playClick() {
+    if (!buffer) return;
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = 0.9 + Math.random() * 0.2; // random pitch
+    source.connect(audioCtx.destination);
+    source.start();
+}
+
+
+
 // Scene setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
 camera.position.z = 6;
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0);
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
@@ -52,7 +76,7 @@ geometry.computeVertexNormals();
 
 
 // Use the canvas as material
-const material = new THREE.MeshBasicMaterial({ map: texture });
+const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
 const plane = new THREE.Mesh(geometry, material);
 scene.add(plane);
 
@@ -61,8 +85,9 @@ let lines = ["yo mista wite, we got it working"];
 let currentInput = "";
 
 function renderCanvas() {
-  ctx.fillStyle = 'black';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // scanlines removed by changes here, see prev ctx.fillrect and prev line (to that) c v here and it'll work
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#00ff00';
   ctx.font = '20px monospace';
 
@@ -73,18 +98,18 @@ function renderCanvas() {
   // Draw current input
   ctx.fillText("> " + currentInput + "_", 10, 30 + lines.length*25);
 
-  drawScanlines(ctx, canvas.width, canvas.height, 6); // spacing = 2px
+  drawScanlines(ctx, canvas.width, canvas.height, 6); // spacing = 6px
 
 
   texture.needsUpdate = true;
 }
 
 function drawScanlines(ctx, canvasWidth, canvasHeight, spacing = 2) {
-    ctx.strokeStyle = 'rgba(0,255,0,0.05)'; // subtle green lines
+    ctx.strokeStyle = 'rgba(0,255,0,0.2)'; // subtle green lines
     ctx.lineWidth = 1;
     for (let y = 0; y < canvasHeight; y += spacing) {
         ctx.beginPath();
-        ctx.moveTo(0, y + 0.5); // 0.5 for sharper line
+        ctx.moveTo(0, y + 0.8); // 0.5 for sharper line
         ctx.lineTo(canvasWidth, y + 0.5);
         ctx.stroke();
     }
@@ -127,14 +152,26 @@ const commands = {
 };
 
 window.addEventListener('keydown', e => {
+
+
   // Normal character input
-  if (e.key.length === 1) currentInput += e.key;
+  if (e.key.length === 1) {
+    
+    currentInput += e.key;
+    playClick();
 
+
+  }
   // Backspace
-  if (e.key === "Backspace") currentInput = currentInput.slice(0, -1);
+  if (e.key === "Backspace") {
+    
+    currentInput = currentInput.slice(0, -1);
+    playClick();
 
+  }
   // Enter / execute command
   if (e.key === "Enter") {
+    playClick();
     const inputValue = currentInput.trim();
     lines.push("> " + inputValue);
 
