@@ -97,9 +97,21 @@ const commands = {
 
 // String commands
 
-  help: () => ["Available commands:", "HELP", "STATUS", "ABOUT", "CLEAR"],
+  help: () => ["Available commands:", "HELP", "STATUS", "ABOUT", "CLEAR", "CREATURES"],
   status: () => ["All systems operational."],
   about: () => ["Curved CRT terminal demo."],
+  creatures: () => ["BARBER", "BRACKEN", "BUNKER SPIDER", "BUTLER", "COIL-HEAD", "GHOST GIRL", "HOARDING BUG", "HYGRODERE", "JESTER", "MANEATER", "MASKED", "NUTCRACKER", "SNARE FLEA", "SPORE LIZARD", "THUMPER"],
+
+// Creatures
+
+  barber: () => {
+    const br = {};
+    br.health = "Invincible";
+    br.powerLevel = 1;
+    br.maxSpawned = 1;
+    br.favoriteMoon = "7-Dine";
+    return ["I had a dream about the Barber", "", "One day he made me a wig", "", "Because his scissors were too big"];
+  },
 
 // Function commands
 
@@ -107,6 +119,11 @@ const commands = {
     lines = [];  // clear the terminal lines
     return ["Terminal cleared."]; // optional feedback
   }
+
+
+
+
+
 };
 
 window.addEventListener('keydown', e => {
