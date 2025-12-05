@@ -276,9 +276,13 @@ window.addEventListener('keydown', async (e) => {
 
     if (e.key.length === 1) currentInput += e.key;
     if (e.key === "Backspace") currentInput = currentInput.slice(0, -1);
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && inputValue !== "") {
+        
+        lines = [];
+
+        
         const inputValue = currentInput.trim();
-        lines.push("> " + inputValue);
+        //lines.push("> " + inputValue);
         const commandFn = commands[inputValue.toLowerCase()];
         
         if (commandFn) {
