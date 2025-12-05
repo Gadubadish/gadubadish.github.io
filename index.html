@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <title>TEST</title>
 <style>
+
+html{
+        zoom: .6;
+}
+
   body {
     margin: 0;
     overflow: hidden;
@@ -16,6 +21,8 @@
 </head>
 <body>
 
+
+
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
@@ -27,11 +34,58 @@ let plane; // defined later
 let startupDone = false;
 let SUinitiated = false;
 
+let difficulty;
+let cost;
+let interiorLayout;
+let mapPhoto;
+
 // --- Fixed layout dimensions ---
 const size = 1.15;
 const WIDTH = 1920*size;
 const HEIGHT = 1080*size;
 const ASPECT = WIDTH / HEIGHT;
+
+
+//DATA
+
+const entities = {
+  barber: { health: "Invincible", power: 1, max: 1, favoriteMoon: "7-Dine" },
+  bracken: { health: 5, power: 3, max: 1, favoriteMoon: "56-Vow" },
+  bunkerSpider: { health: 5, power: 2, max: 1, favoriteMoon: "41-Experimentation" },
+  butler: { health: "2(SP*)/8(MP*)", power: 2, max: 7, favoriteMoon: "7-Dine" },
+  coilHead: { health: "Invincible", power: 1, max: 5, favoriteMoon: "21-Offense" },
+  ghostGirl: { health: "Invincible", power: 2, max: 1, favoriteMoon: "85-Rend" },
+  hoardingBug: { health: 3, power: 1, max: 8, favoriteMoon: "5-Embrion" },
+  hygrodere: { health: "Invincible", power: 1, max: 2, favoriteMoon: "21-Offense" },
+  jester: { health: "Invincible", power: 3, max: 1, favoriteMoon: "85-Rend" },
+  maneater: { health: 5, power: 2, max: 1, favoriteMoon: "56-Vow" },
+  masked: { health: 4, power: 1, max: 10, favoriteMoon: "68-Artifice" },
+  nutcracker: { health: 5, power: 1, max: 10, favoriteMoon: "85-Rend" },
+  snareFlea: { health: 3, power: 1, max: 4, favoriteMoon: "220-Assurance" },
+  sporeLizard: { health: "Invincible", power: 1, max: 2, favoriteMoon: "5-Embrion" },
+  thumper: { health: 4, power: 3, max: 4, favoriteMoon: "21-Offense" },
+  baboonHawk: { health: 4, power: 0.5, max: 15, favoriteMoon: "20-Adamance" },
+  earthLeviathan: { health: "Invincible", power: 2, max: 3, favoriteMoon: "220-Assurance" },
+  eyelessDog: { health: 12, power: 2, max: 8, favoriteMoon: "8-Titan" },
+  forestKeeper: { health: 38, power: 3, max: 3, favoriteMoon: "56-Vow" },
+  oldBird: { health: "Invincible", power: 3, max: 20, favoriteMoon: "5-Embrion" }
+};
+
+const moons = {
+  gordion: { difficulty: "Safe", cost: 0, interiorLayout: "-", mapPhoto: "71-Gordion (Company Building)" },
+  experimentation: { difficulty: "Easy", cost: 0, interiorLayout: "The Factory (99%)", mapPhoto: "41-Experimentation" },
+  assurance: { difficulty: "Easy", cost: 0, interiorLayout: "The Factory (87%)", mapPhoto: "220-Assurance" },
+  vow: { difficulty: "Easy", cost: 0, interiorLayout: "The Factory (54%)", mapPhoto: "56-Vow" },
+  offense: { difficulty: "Intermediate", cost: 0, interiorLayout: "The Mineshaft (60%)", mapPhoto: "21-Offense" },
+  march: { difficulty: "Intermediate", cost: 0, interiorLayout: "The Factory (100%)", mapPhoto: "61-March" },
+  adamance: { difficulty: "Intermediate", cost: 0, interiorLayout: "The Factory (67%)", mapPhoto: "20-Adamance" },
+  rend: { difficulty: "Hard", cost: 550, interiorLayout: "The Mansion (85%)", mapPhoto: "85-Rend" },
+  dine: { difficulty: "Hard", cost: 600, interiorLayout: "The Mansion (67%)", mapPhoto: "7-Dine" },
+  titan: { difficulty: "Hard", cost: 700, interiorLayout: "The Factory (64%)", mapPhoto: "8-Titan" },
+  embrion: { difficulty: "-", cost: 0, interiorLayout: "-", mapPhoto: "5-Embrion" },
+  artifice: { difficulty: "-", cost: 0, interiorLayout: "-", mapPhoto: "68-Artifice" }
+};
+
 
 
 // --- Audio (unchanged) ---
@@ -50,6 +104,10 @@ function playClick() {
     source.connect(audioCtx.destination);
     source.start();
 }
+
+
+
+
 
 // --- Scene setup ---
 const scene = new THREE.Scene();
@@ -107,7 +165,7 @@ async function startupAnimation() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const steps = 96;
-    const delay = 10;
+    const delay = 1;
     for (let i = 0; i < steps; i++) {
         ctx.fillStyle = `rgba(0,255,0,${i / (4*steps)})`;
         ctx.fillRect(0, 6 * i, canvas.width, 2);
@@ -124,7 +182,7 @@ async function startupAnimation() {
     ctx.fillText("GORDION INDUSTRIES", canvas.width/2 - 130, canvas.height/2);
     texture.needsUpdate = true;
 
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 250));
 
     renderCanvas();
 
@@ -170,20 +228,32 @@ function drawScanlines(ctx, canvasWidth, canvasHeight, spacing = 2) {
     }
 }
 
+function Additional () {
+
+        return [moons.inputValue];
+
+
+}
+
 // --- Commands ---
 const commands = {
-    help: () => ["Available commands:", "HELP", "STATUS", "ABOUT", "CLEAR", "CREATURES"],
+    help: () => ["Available commands:", "HELP", "STATUS", "ABOUT", "CLEAR", "entities", "MOONS"],
     status: () => ["All systems operational."],
     about: () => ["Curved CRT terminal demo."],
-    creatures: () => ["BARBER", "BRACKEN", "BUNKER SPIDER", "BUTLER", "COIL-HEAD", "GHOST GIRL", "HOARDING BUG", "HYGRODERE", "JESTER", "MANEATER", "MASKED", "NUTCRACKER", "SNARE FLEA", "SPORE LIZARD", "THUMPER"],
-    barber: () => {
-        const br = {};
-        br.health = "Invincible";
-        br.powerLevel = 1;
-        br.maxSpawned = 1;
-        br.favoriteMoon = "7-Dine";
-        return ["I had a dream about the Barber", "", "One day he made me a wig", "", "Because his scissors were too big"];
-    },
+    entities: () => ["BARBER", "BRACKEN", "BUNKER SPIDER", "BUTLER", "COIL-HEAD", "GHOST GIRL", "HOARDING BUG", "HYGRODERE", "JESTER", "MANEATER", "MASKED", "NUTCRACKER", "SNARE FLEA", "SPORE LIZARD", "THUMPER"],
+    
+    //entities
+
+
+
+
+    
+    moons: () => ["71-GORDION", "41-EXPERIMENTATION", "220-ASSURANCE", "56-VOW", "21-OFFENSE", "61-MARCH", "20-ADAMANCE", "85-REND", "7-DINE", "8-TITAN"],
+    
+    //Moons
+    
+
+
     clear: () => {
         lines = [];
         return ["Terminal cleared."];
@@ -210,18 +280,37 @@ window.addEventListener('keydown', async (e) => {
         const inputValue = currentInput.trim();
         lines.push("> " + inputValue);
         const commandFn = commands[inputValue.toLowerCase()];
+        
         if (commandFn) {
             const result = commandFn();
             if (result && result.length) result.forEach(line => lines.push(line));
-        } else if (inputValue !== "") {
+        } else if(inputValue in moons) {
+
+            lines.push(moons[inputValue].difficulty);
+            lines.push(moons[inputValue].cost);
+            lines.push(moons[inputValue].interiorLayout);
+            lines.push(moons[inputValue].mapPhoto);
+
+        } else if (inputValue in entities) {
+
+            lines.push(entities[inputValue].health);
+            lines.push(entities[inputValue].power);
+            lines.push(entities[inputValue].max);
+            lines.push(entities[inputValue].favoriteMoon);
+
+        }else if (inputValue !== "") {
             lines.push("Unknown command: " + inputValue);
         }
         currentInput = "";
         if (lines.length > 21) lines = lines.slice(lines.length-21);
+        
     }
+    
+    
 
     playClick();
     renderCanvas();
+    
   }
 
 });
