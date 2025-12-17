@@ -4,40 +4,41 @@
 <meta charset="UTF-8">
 <title>TEST</title>
 <style>
-
-html{
-        zoom: .6;
-}
-
-  body {
+html { zoom: 1; }
+body {
     margin: 0;
     overflow: hidden;
     background: black url(images/CRT.png) no-repeat;
-    background-position: -10px 70px; /* fixed position */
-    background-size: 2080px; /* keep original image size */
-  }
-  canvas { display: block; }
+    background-position: -10px 70px;
+    background-size: 2080px;
+}
+canvas { display: block; }
 </style>
 </head>
 <body>
 
+  <div id="debug" style="position:fixed; top:10px; left:10px; 
+      width:1000px; max-height:90vh; overflow-y:auto; 
+      color:#f00; font-family:monospace; 
+      font-size:25px; padding:5px;pointer-events: none; z-index:1000;">
+      </div>
+
+      <img id = "img"; src="images/CRTknob.png" style="position:absolute; left:-10px; top:70px; width: 2080px;" >
+      <img src="images/spectrumanalizer.png" style="position: absolute; left: 1700px; top: 130px; width: 600px" >
+      <img id="entityImg" src="images/spectrumanalizer.jpg" style="position:fixed; right:40px; top:40px; width:300px;">
 
 
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
+const img = document.getElementById('img');
 
+img.style.transformOrigin = "1590px 323px";
 
-  
 // --- Plane & animation flags ---
-let plane; // defined later
+let plane, hoverPlane;
 let startupDone = false;
 let SUinitiated = false;
-
-let difficulty;
-let cost;
-let interiorLayout;
-let mapPhoto;
 
 // --- Fixed layout dimensions ---
 const size = 1.15;
@@ -45,57 +46,72 @@ const WIDTH = 1920*size;
 const HEIGHT = 1080*size;
 const ASPECT = WIDTH / HEIGHT;
 
+let currentHoverScale = 0; // current extrusion
+let targetHoverScale = 0;  // target extrusion for hovered line
+const maxHoverScale = 0.05; // maximum extrusion
+const hoverLerpSpeed = 0.08; // how fast it interpolates
 
-//DATA
 
+
+let debugLines = [];
+let inputlist = [];
+let inputValue = "";
+let placehold = "";
+let isReturn = false;
+
+let knobRot = 0;
+
+let goober = "CRT.png";
+
+
+
+// --- Data ---
 const entities = {
-  barber: { health: "Invincible", power: 1, max: 1, favoriteMoon: "7-Dine" },
-  bracken: { health: 5, power: 3, max: 1, favoriteMoon: "56-Vow" },
-  bunkerSpider: { health: 5, power: 2, max: 1, favoriteMoon: "41-Experimentation" },
-  butler: { health: "2(SP*)/8(MP*)", power: 2, max: 7, favoriteMoon: "7-Dine" },
-  coilHead: { health: "Invincible", power: 1, max: 5, favoriteMoon: "21-Offense" },
-  ghostGirl: { health: "Invincible", power: 2, max: 1, favoriteMoon: "85-Rend" },
-  hoardingBug: { health: 3, power: 1, max: 8, favoriteMoon: "5-Embrion" },
-  hygrodere: { health: "Invincible", power: 1, max: 2, favoriteMoon: "21-Offense" },
-  jester: { health: "Invincible", power: 3, max: 1, favoriteMoon: "85-Rend" },
-  maneater: { health: 5, power: 2, max: 1, favoriteMoon: "56-Vow" },
-  masked: { health: 4, power: 1, max: 10, favoriteMoon: "68-Artifice" },
-  nutcracker: { health: 5, power: 1, max: 10, favoriteMoon: "85-Rend" },
-  snareFlea: { health: 3, power: 1, max: 4, favoriteMoon: "220-Assurance" },
-  sporeLizard: { health: "Invincible", power: 1, max: 2, favoriteMoon: "5-Embrion" },
-  thumper: { health: 4, power: 3, max: 4, favoriteMoon: "21-Offense" },
-  baboonHawk: { health: 4, power: 0.5, max: 15, favoriteMoon: "20-Adamance" },
-  earthLeviathan: { health: "Invincible", power: 2, max: 3, favoriteMoon: "220-Assurance" },
-  eyelessDog: { health: 12, power: 2, max: 8, favoriteMoon: "8-Titan" },
-  forestKeeper: { health: 38, power: 3, max: 3, favoriteMoon: "56-Vow" },
-  oldBird: { health: "Invincible", power: 3, max: 20, favoriteMoon: "5-Embrion" }
+"barber": { health: "Invincible", power: 1, max: 1, favoriteMoon: "7-dine", image: "Barber.jpg" },
+  "bracken": { health: 5, power: 3, max: 1, favoriteMoon: "56-vow", image: "Bracken.jpg" },
+  "bunker spider": { health: 5, power: 2, max: 1, favoriteMoon: "41-experimentation", image: "Bunkerspider.jpg" },
+  "butler": { health: "2(SP*)/8(MP*)", power: 2, max: 7, favoriteMoon: "7-dine", image: "Butler.jpg" },
+  "coil-head": { health: "Invincible", power: 1, max: 5, favoriteMoon: "21-offense", image: "Coilhead.jpg" },
+  "ghost girl": { health: "Invincible", power: 2, max: 1, favoriteMoon: "85-rend", image: "Ghostgirl.jpg" },
+  "hoarding bug": { health: 3, power: 1, max: 8, favoriteMoon: "5-embrion", image: "Hoardingbug.jpg" },
+  "hygrodere": { health: "Invincible", power: 1, max: 2, favoriteMoon: "21-offense", image: "Hygrodere.jpg" },
+  "jester": { health: "Invincible", power: 3, max: 1, favoriteMoon: "85-rend", image: "Jester.jpg" },
+  "maneater": { health: 5, power: 2, max: 1, favoriteMoon: "56-vow", image: "Maneater.jpg" },
+  "masked": { health: 4, power: 1, max: 10, favoriteMoon: "68-artifice", image: "Masked.jpg" },
+  "nutcracker": { health: 5, power: 1, max: 10, favoriteMoon: "85-rend", image: "Nutcracker.jpg" },
+  "snare flea": { health: 3, power: 1, max: 4, favoriteMoon: "220-assurance", image: "Snareflea.jpg" },
+  "spore lizard": { health: "Invincible", power: 1, max: 2, favoriteMoon: "5-embrion", image: "Sporelizard.jpg" },
+  "thumper": { health: 4, power: 3, max: 4, favoriteMoon: "21-offense", image: "Thumper.jpg" },
+  "baboon hawk": { health: 4, power: 0.5, max: 15, favoriteMoon: "20-adamance", image: "Baboonhawk.jpg" },
+  "earth leviathan": { health: "Invincible", power: 2, max: 3, favoriteMoon: "220-assurance", image: "Earthleviathan.jpg" },
+  "eyeless dog": { health: 12, power: 2, max: 8, favoriteMoon: "8-titan", image: "Eyelessdog.jpg" },
+  "forest keeper": { health: 38, power: 3, max: 3, favoriteMoon: "56-vow", image: "Forestgiant.jpg" },
+  "old bird": { health: "Invincible", power: 3, max: 20, favoriteMoon: "5-embrion", image: "Oldbird.jpg" }
 };
 
 const moons = {
-  gordion: { difficulty: "Safe", cost: 0, interiorLayout: "-", mapPhoto: "71-Gordion (Company Building)" },
-  experimentation: { difficulty: "Easy", cost: 0, interiorLayout: "The Factory (99%)", mapPhoto: "41-Experimentation" },
-  assurance: { difficulty: "Easy", cost: 0, interiorLayout: "The Factory (87%)", mapPhoto: "220-Assurance" },
-  vow: { difficulty: "Easy", cost: 0, interiorLayout: "The Factory (54%)", mapPhoto: "56-Vow" },
-  offense: { difficulty: "Intermediate", cost: 0, interiorLayout: "The Mineshaft (60%)", mapPhoto: "21-Offense" },
-  march: { difficulty: "Intermediate", cost: 0, interiorLayout: "The Factory (100%)", mapPhoto: "61-March" },
-  adamance: { difficulty: "Intermediate", cost: 0, interiorLayout: "The Factory (67%)", mapPhoto: "20-Adamance" },
-  rend: { difficulty: "Hard", cost: 550, interiorLayout: "The Mansion (85%)", mapPhoto: "85-Rend" },
-  dine: { difficulty: "Hard", cost: 600, interiorLayout: "The Mansion (67%)", mapPhoto: "7-Dine" },
-  titan: { difficulty: "Hard", cost: 700, interiorLayout: "The Factory (64%)", mapPhoto: "8-Titan" },
-  embrion: { difficulty: "-", cost: 0, interiorLayout: "-", mapPhoto: "5-Embrion" },
-  artifice: { difficulty: "-", cost: 0, interiorLayout: "-", mapPhoto: "68-Artifice" }
+  "71-gordion": { difficulty: "Safe", cost: 0, interiorLayout: "-", mapPhoto: "71-gordion" },
+  "41-experimentation": { difficulty: "Easy", cost: 0, interiorLayout: "The Factory (99%)", mapPhoto: "41-experimentation" },
+  "220-assurance": { difficulty: "Easy", cost: 0, interiorLayout: "The Factory (87%)", mapPhoto: "220-assurance" },
+  "56-vow": { difficulty: "Easy", cost: 0, interiorLayout: "The Factory (54%)", mapPhoto: "56-vow" },
+  "21-offense": { difficulty: "Intermediate", cost: 0, interiorLayout: "The Mineshaft (60%)", mapPhoto: "21-offense" },
+  "61-march": { difficulty: "Intermediate", cost: 0, interiorLayout: "The Factory (100%)", mapPhoto: "61-march" },
+  "20-adamance": { difficulty: "Intermediate", cost: 0, interiorLayout: "The Factory (67%)", mapPhoto: "20-adamance" },
+  "85-rend": { difficulty: "Hard", cost: 550, interiorLayout: "The Mansion (85%)", mapPhoto: "85-rend" },
+  "7-dine": { difficulty: "Hard", cost: 600, interiorLayout: "The Mansion (67%)", mapPhoto: "7-dine" },
+  "8-titan": { difficulty: "Hard", cost: 700, interiorLayout: "The Factory (64%)", mapPhoto: "8-titan" },
+  "5-embrion": { difficulty: "-", cost: 0, interiorLayout: "-", mapPhoto: "5-embrion" },
+  "68-artifice": { difficulty: "-", cost: 0, interiorLayout: "-", mapPhoto: "68-artifice" }
 };
 
 
-
-// --- Audio (unchanged) ---
+// --- Audio ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let buffer;
 fetch("sfx/click.mp3")
   .then(r => r.arrayBuffer())
   .then(data => audioCtx.decodeAudioData(data))
   .then(decoded => buffer = decoded);
-
 function playClick() {
     if (!buffer) return;
     const source = audioCtx.createBufferSource();
@@ -103,6 +119,21 @@ function playClick() {
     source.playbackRate.value = 0.9 + Math.random() * 0.2;
     source.connect(audioCtx.destination);
     source.start();
+}
+
+function debug(text) {
+    const debugDiv = document.getElementById("debug");
+    const p = document.createElement("div");
+    p.textContent = text;
+    debugDiv.appendChild(p);
+
+    // Keep last 50 messages
+    while (debugDiv.children.length > 50) {
+        debugDiv.removeChild(debugDiv.firstChild);
+    }
+
+    // Auto scroll to bottom
+    debugDiv.scrollTop = debugDiv.scrollHeight;
 }
 
 
@@ -113,7 +144,6 @@ function playClick() {
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, ASPECT, 0.1, 1000);
 camera.position.z = 7;
-camera.position.x = 0;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setClearColor(0x000000, 0);
@@ -134,7 +164,14 @@ ctx.fillStyle = '#00ff00';
 ctx.font = '20px monospace';
 const texture = new THREE.CanvasTexture(canvas);
 
-// --- CRT-like curved plane ---
+// --- Hover plane canvas ---
+const hoverCanvas = document.createElement('canvas');
+hoverCanvas.width = canvas.width;
+hoverCanvas.height = canvas.height;
+const hoverCtx = hoverCanvas.getContext('2d');
+const hoverTexture = new THREE.CanvasTexture(hoverCanvas);
+
+// --- CRT-like curved plane geometry ---
 const width = 6;
 const height = 4.5;
 const segmentsX = 60;
@@ -149,74 +186,45 @@ for (let i = 0; i < positions.length; i += 3) {
 geometry.attributes.position.needsUpdate = true;
 geometry.computeVertexNormals();
 
+// --- Main plane ---
 const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
 plane = new THREE.Mesh(geometry, material);
-plane.visible = false; // hide plane initially
+plane.visible = false;
 scene.add(plane);
 
-// --- Startup animation ---
-async function startupAnimation() {
-
-
-    
-
-    plane.visible = true;
-    ctx.fillStyle = 'transparent';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const steps = 96;
-    const delay = 1;
-    for (let i = 0; i < steps; i++) {
-        ctx.fillStyle = `rgba(0,255,0,${i / (4*steps)})`;
-        ctx.fillRect(0, 6 * i, canvas.width, 2);
-        texture.needsUpdate = true;
-        await new Promise(r => setTimeout(r, delay));
-    }
-    
-
-    ctx.fillStyle = '#00ff00';
-    ctx.shadowColor = 'rgba(0,255,0,1)';
-    ctx.shadowBlur = 10; // adjust for glow intensity
- 
-    ctx.font = '28px monospace';
-    ctx.fillText("GORDION INDUSTRIES", canvas.width/2 - 130, canvas.height/2);
-    texture.needsUpdate = true;
-
-    await new Promise(r => setTimeout(r, 250));
-
-    renderCanvas();
-
+// --- Hover plane (inflated along normals) ---
+const hoverGeometry = geometry.clone();
+const normals = hoverGeometry.attributes.normal.array;
+const hoverPositions = hoverGeometry.attributes.position.array;
+const hoverScale = 0.05;
+for (let i = 0; i < hoverPositions.length; i += 3) {
+    hoverPositions[i]     += normals[i]     * hoverScale;
+    hoverPositions[i + 1] += normals[i + 1] * hoverScale;
+    hoverPositions[i + 2] += normals[i + 2] * hoverScale;
 }
+hoverGeometry.attributes.position.needsUpdate = true;
+hoverGeometry.computeVertexNormals();
 
-// --- Terminal logic ---
-let lines = ["yo mista wite, we got it working"];
+const hoverMaterial = new THREE.MeshBasicMaterial({ map: hoverTexture, transparent: true });
+hoverPlane = new THREE.Mesh(hoverGeometry, hoverMaterial);
+hoverPlane.visible = false;
+scene.add(hoverPlane);
+
+// --- Terminal text setup ---
+let lines = ["For a list of commands type or click:", "HELP"];
 let currentInput = "";
+const leftPadding = 10;
+const firstLineY = 25;
+const lineHeight = 25;
+const inputBaselineOffset = 30;
 
-function renderCanvas() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if(plane.visible)
-    {
-    ctx.fillStyle = '#00ff00';
-    ctx.shadowColor = '#00ff00';
-    ctx.shadowBlur = 15; // adjust for glow intensity
+// --- Hover state ---
+let hoveredLine = -1;
+let lastHovered = -2;
 
-    ctx.font = '25px monospace';
-    for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], 10, 25 + i*25);
-        
-    }
-    ctx.fillText("> " + currentInput + "_", 10, 30 + lines.length*25);
-    
-    
 
-    ctx.shadowBlur = 0;
-    drawScanlines(ctx, canvas.width, canvas.height, 6);
 
-    }
-   
-    texture.needsUpdate = true;
-}
-
+// --- Scanlines ---
 function drawScanlines(ctx, canvasWidth, canvasHeight, spacing = 2) {
     ctx.strokeStyle = 'rgba(0,255,0,0.2)';
     ctx.lineWidth = 1;
@@ -228,12 +236,149 @@ function drawScanlines(ctx, canvasWidth, canvasHeight, spacing = 2) {
     }
 }
 
-function Additional () {
+// --- Startup animation ---
+async function startupAnimation() {
+    plane.visible = true;
+    ctx.fillStyle = 'transparent';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        return [moons.inputValue];
+    const steps = 96;
+    const delay = 10;
+    for (let i = 0; i < steps; i++) {
+        ctx.fillStyle = `rgba(0,255,0,${i / (4*steps)})`;
+        ctx.fillRect(0, 6 * i, canvas.width, 2);
+        texture.needsUpdate = true;
+        await new Promise(r => setTimeout(r, delay));
+    }
+
+    ctx.fillStyle = '#00ff00';
+    ctx.shadowColor = 'rgba(0,255,0,1)';
+    ctx.shadowBlur = 10;
+    ctx.font = '28px monospace';
+    ctx.fillText("GORDION INDUSTRIES", canvas.width/2 - 130, canvas.height/2);
+    texture.needsUpdate = true;
+    await new Promise(r => setTimeout(r, 1000));
+    renderCanvas();
+}
+
+// --- Hover plane render ---
+function renderHoverCanvas() {
+    hoverCtx.clearRect(0, 0, hoverCanvas.width, hoverCanvas.height);
+    if (hoveredLine === -1) {
+        hoverPlane.visible = false;
+        return;
+    }
+    hoverPlane.visible = true;
+    hoverCtx.font = '25px monospace';
+    hoverCtx.fillStyle = '#00AD20';
+    hoverCtx.shadowColor = '#00AD20';
+    hoverCtx.shadowBlur = 18;
+
+    if (hoveredLine < lines.length) {
+        hoverCtx.fillText(lines[hoveredLine], leftPadding, firstLineY + hoveredLine * lineHeight);
+    } else {
+        hoverCtx.fillText("< " + currentInput , leftPadding, inputBaselineOffset + lines.length * lineHeight);
+    }
+
+    hoverTexture.needsUpdate = true;
+}
+
+// --- Render function ---
+function renderCanvas() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if(plane.visible) {
+        ctx.font = '25px monospace';
+        for (let i = 0; i < lines.length; i++) {
+            if (i === hoveredLine) continue; // skip hovered line
+            ctx.fillStyle = '#00ff00';
+            ctx.shadowColor = '#00ff00';
+            ctx.shadowBlur = 15;
+            ctx.fillText(lines[i], leftPadding, firstLineY + i * lineHeight);
+        }
+        if (hoveredLine !== lines.length) {
+            ctx.fillStyle = '#00ff00';
+            ctx.shadowColor = '#00ff00';
+            ctx.shadowBlur = 0;
+            ctx.fillText("> " + currentInput + "_", leftPadding, inputBaselineOffset + lines.length * lineHeight);
+        }
+
+        drawScanlines(ctx, canvas.width, canvas.height, 6);
+    }
+    texture.needsUpdate = true;
+
+    renderHoverCanvas(); // render hovered line
+}
+
+function updateHoverPlane() {
+    currentHoverScale += (targetHoverScale - currentHoverScale) * hoverLerpSpeed;
+
+    for (let i = 0; i < hoverPositions.length; i += 3) {
+        hoverPositions[i]     = geometry.attributes.position.array[i]     + normals[i]     * currentHoverScale;
+        hoverPositions[i + 1] = geometry.attributes.position.array[i + 1] + normals[i + 1] * currentHoverScale;
+        hoverPositions[i + 2] = geometry.attributes.position.array[i + 2] + normals[i + 2] * currentHoverScale;
+    }
+    hoverGeometry.attributes.position.needsUpdate = true;
+    hoverGeometry.computeVertexNormals();
+}
+function executeInput(inputValue) {
+
+
+
+if (!isReturn) { inputlist = inputlist.concat(inputValue);}
+
+
+
+if (isReturn) {
+    
+isReturn = false;
+inputlist.pop();
+inputValue = inputlist[inputlist.length - 1];
+    
+
+};
+
+
+
+    
+    
+  
+
+
+    
+
+    lines = []; // clear current terminal lines
+    
+    
+
+    const commandFn = commands[inputValue.toLowerCase()];
+    if (commandFn) {
+        const result = commandFn();
+        if (result && result.length) result.forEach(line => lines.push(line));
+    } else if (inputValue in moons) {
+        const m = moons[inputValue];
+        lines.push(inputValue.toUpperCase(),m.difficulty, m.cost, m.interiorLayout, m.mapPhoto);
+    } else if (inputValue in entities) {
+        const e = entities[inputValue];
+        lines.push(inputValue.toUpperCase(),e.health, e.power, e.max, e.favoriteMoon);
+        document.getElementById("entityImg").src = `images/entities/${e.image}`;
+    } else if (inputValue !== "") {
+        lines.push("Unknown command: " + inputValue, "For a list of commands type or click:","HELP");
+    } 
+    inputValue = "";
+    currentInput = "";
+    if (lines.length > 21) lines = lines.slice(lines.length - 21);
+    renderCanvas(); 
+
+   
+
+
+
 
 
 }
+
+
+
 
 // --- Commands ---
 const commands = {
@@ -241,92 +386,157 @@ const commands = {
     status: () => ["All systems operational."],
     about: () => ["Curved CRT terminal demo."],
     entities: () => ["BARBER", "BRACKEN", "BUNKER SPIDER", "BUTLER", "COIL-HEAD", "GHOST GIRL", "HOARDING BUG", "HYGRODERE", "JESTER", "MANEATER", "MASKED", "NUTCRACKER", "SNARE FLEA", "SPORE LIZARD", "THUMPER"],
-    
-    //entities
-
-
-
-
-    
     moons: () => ["71-GORDION", "41-EXPERIMENTATION", "220-ASSURANCE", "56-VOW", "21-OFFENSE", "61-MARCH", "20-ADAMANCE", "85-REND", "7-DINE", "8-TITAN"],
-    
-    //Moons
-    
 
-
-    clear: () => {
-        lines = [];
-        return ["Terminal cleared."];
-    }
+    clear: () => { lines = []; return ["Terminal cleared."]; }
 };
 
 // --- Input handling ---
+// --- Input handling ---
 window.addEventListener('keydown', async (e) => {
-
-  
+    
+    
+    if (startupDone)playClick();
+    
+    
     if (!startupDone) {
-      if(SUinitiated) return;
+        if (SUinitiated) return;
+        new Audio("sfx/start.mp3").play();
         SUinitiated = true;
         await startupAnimation();
         startupDone = true;
         return;
-    }else {
+    }
 
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
     if (e.key.length === 1) currentInput += e.key;
     if (e.key === "Backspace") currentInput = currentInput.slice(0, -1);
     if (e.key === "Enter") {
-        
-        lines = [];
-
-        
-        const inputValue = currentInput.trim();
-        //lines.push("> " + inputValue);
-        const commandFn = commands[inputValue.toLowerCase()];
-        
-        if (commandFn) {
-            const result = commandFn();
-            if (result && result.length) result.forEach(line => lines.push(line));
-        } else if(inputValue in moons) {
-
-            lines.push(moons[inputValue].difficulty);
-            lines.push(moons[inputValue].cost);
-            lines.push(moons[inputValue].interiorLayout);
-            lines.push(moons[inputValue].mapPhoto);
-
-        } else if (inputValue in entities) {
-
-            lines.push(entities[inputValue].health);
-            lines.push(entities[inputValue].power);
-            lines.push(entities[inputValue].max);
-            lines.push(entities[inputValue].favoriteMoon);
-
-        }else if (inputValue !== "") {
-            lines.push("Unknown command: " + inputValue);
-        }
-        currentInput = "";
-        if (lines.length > 21) lines = lines.slice(lines.length-21);
-        
+        executeInput(currentInput.trim());
+    } if (e.key === "Tab") {
+        e.preventDefault();
+        isReturn = true;
+        executeInput(currentInput.trim());  
     }
-    
-    
 
-    playClick();
     renderCanvas();
-    
-  }
-
 });
 
-renderCanvas();
 
-// --- Render loop ---
+
+
+
+// --- Raycaster & hover ---
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+function onMouseMove(event) {
+    
+    
+    if (!startupDone) return;
+    if (hoveredLine >= 0) targetHoverScale = maxHoverScale;
+    else currentHoverScale = 0;
+
+    const rect = renderer.domElement.getBoundingClientRect();
+
+
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+   
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(plane);
+    if (intersects.length > 0 && intersects[0].uv) {
+        const uv = intersects[0].uv;
+        const canvasY = (1 - uv.y) * canvas.height;
+        const index = Math.floor((canvasY - firstLineY + lineHeight/2) / lineHeight);
+        const inputY = inputBaselineOffset + lines.length * lineHeight; 
+        
+        let newHovered = -1;
+        
+        if (index >= 0 && index < lines.length) {
+    const lineContent = lines[index];
+    const groupNames = {commands: Object.keys(commands)}
+    const commandNames = Object.keys(commands).concat(Object.keys(moons)).concat(Object.keys(entities));
+    if (commandNames.some(cmd => lineContent.toLowerCase().includes(cmd.toLowerCase()))) {
+        newHovered = index;
+    } 
+    
+}
+
+        else if (Math.abs(canvasY - inputY) < lineHeight/1.5) newHovered = lines.length; 
+        hoveredLine = newHovered;
+        if (hoveredLine !== lastHovered)currentHoverScale = 0;
+        renderer.domElement.style.cursor = (hoveredLine >= 0) ? 'pointer' : 'default';
+
+    } else {
+        hoveredLine = -1;
+        renderer.domElement.style.cursor = 'default';
+    }
+
+    if (hoveredLine !== lastHovered) {
+        lastHovered = hoveredLine; 
+        renderCanvas();
+    }
+}
+renderer.domElement.addEventListener('mousemove', onMouseMove); 
+renderer.domElement.addEventListener('mouseleave', () => { hoveredLine = -1;  renderCanvas(); });
+
+function onLineClick() {
+    if (hoveredLine === -1) return;
+    playClick();
+       if (hoveredLine === lines.length){
+        
+        isReturn = true;
+        executeInput(currentInput.trim());    
+        
+       }else{
+
+    inputValue = hoveredLine < lines.length ? lines[hoveredLine] : currentInput.trim();
+
+    if (inputValue)  {executeInput(inputValue.toLowerCase()); };
+    if (inputValue == "") ;
+
+    }
+}
+
+renderer.domElement.addEventListener('click', onLineClick);
+
+
+// Add click listener
+renderer.domElement.addEventListener('click', onLineClick);
+
+renderer.domElement.addEventListener('click', (e) => {
+    // get mouse position relative to canvas
+   //pivot(200,200);
+
+   knobRot+=15;
+    img.style.transform = `rotate(${knobRot}deg)`;
+    // check if inside boundary
+    
+        debug("a");
+
+    
+});
+
+// --- Animation loop ---
 function animate() {
     requestAnimationFrame(animate);
+
+
+    updateHoverPlane(); // smoothly extrude hover plane
+    
     renderer.render(scene, camera);
+
+
 }
+
 animate();
+
+// --- Initial render ---
+renderCanvas();
 </script>
 </body>
 </html>
