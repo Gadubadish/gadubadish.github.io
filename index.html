@@ -4,15 +4,23 @@
 <meta charset="UTF-8">
 <title>TEST</title>
 <style>
+    :root {
+    --img-w: 40vw;
+    --img-x: 10vw;
+    --img-y: 15vh;
+}
 html { zoom: 1; }
 body {
     margin: 0;
     overflow: hidden;
-    background: black url(images/CRT.png) no-repeat;
-    background-position: -10px 70px;
-    background-size: 2080px;
+    background: black url(images/background.jpeg) no-repeat;
+    
+    background-size:  110%;
 }
 canvas { display: block; }
+
+
+
 </style>
 </head>
 <body>
@@ -21,12 +29,24 @@ canvas { display: block; }
       width:1000px; max-height:90vh; overflow-y:auto; 
       color:#f00; font-family:monospace; 
       font-size:25px; padding:5px;pointer-events: none; z-index:1000;">
-      </div>
+      </div id="UI">
 
-      <img id = "img"; src="images/CRTknob.png" style="position:absolute; left:-10px; top:70px; width: 2080px;" >
-      <img src="images/spectrumanalizer.png" style="position: absolute; left: 1700px; top: 130px; width: 600px" >
-      <img id="entityImg" src="images/spectrumanalizer.jpg" style="position:fixed; right:40px; top:40px; width:300px;">
+      <img id="crt"src="images/CRT.png"style="position:relative; top: 15vh; width: 80vw;" >
+      <img id = "img"; class = "UI"; src="images/CRTknob.png" style="position:absolute;  width: 80vw;" >
+      <img src="images/spectrumanalizer.png" style=" position: absolute; left: 67vw; top: 30vh; width: 20vw" >
+      <div id="entityContainer" 
+     style="position: absolute; 
+            left: 71.65vw; top: 41vh; 
+            width: 9vw; height: 23vh; 
+            overflow: hidden; 
+            border: 0px solid #0f0;"> <!-- optional border for debugging -->
 
+    <img id="entityImg" src="tra.png" 
+         style="position: absolute; 
+                width: 100%; height: 100%; 
+                object-fit: cover;">
+</div>
+</div>
 
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -34,6 +54,8 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.m
 const img = document.getElementById('img');
 
 img.style.transformOrigin = "1590px 323px";
+
+let imageUpdate = false;
 
 // --- Plane & animation flags ---
 let plane, hoverPlane;
@@ -61,7 +83,9 @@ let isReturn = false;
 
 let knobRot = 0;
 
-let goober = "CRT.png";
+const crtImg = document.getElementById('crt');
+
+const r = crtImg.getBoundingClientRect();
 
 
 
@@ -149,14 +173,44 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setClearColor(0x000000, 0);
 renderer.setSize(WIDTH, HEIGHT);
 renderer.domElement.style.position = "absolute";
-renderer.domElement.style.left = "-250px";
-renderer.domElement.style.top = "0px";
+
 document.body.appendChild(renderer.domElement);
+
+function syncRendererToCRT() {
+    const rect = crtImg.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Compute position & size as percentages of viewport
+    const leftPct = (rect.left / vw) * 100;
+    const topPct  = (rect.top / vh) * 100;
+    const widthPct  = (rect.width / vw) * 110;
+    const heightPct = (rect.height / vh) * 110;
+
+    // Set renderer size to match CRT element
+    renderer.setSize(rect.width, rect.height, false);
+    renderer.setPixelRatio(window.devicePixelRatio);
+
+
+    // Position renderer using viewport percentage
+    renderer.domElement.style.position = 'absolute';
+    renderer.domElement.style.left = `${leftPct -10.5}vw`;
+    renderer.domElement.style.top  = `${topPct - 7}vh`;
+    renderer.domElement.style.width = `${widthPct}vw`;
+    renderer.domElement.style.height = `${heightPct}vh`;
+
+    // Update camera aspect
+    camera.aspect = rect.width / rect.height;
+    camera.updateProjectionMatrix();
+}
+
+
+
 
 // --- Terminal canvas ---
 const canvas = document.createElement('canvas');
 canvas.width = 1024;
-canvas.height = 576;
+canvas.height = canvas.width*.5625;
 const ctx = canvas.getContext('2d');
 ctx.fillStyle = 'black';
 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -173,7 +227,7 @@ const hoverTexture = new THREE.CanvasTexture(hoverCanvas);
 
 // --- CRT-like curved plane geometry ---
 const width = 6;
-const height = 4.5;
+const height = width*.75;
 const segmentsX = 60;
 const segmentsY = 60;
 const geometry = new THREE.PlaneGeometry(width, height, segmentsX, segmentsY);
@@ -322,6 +376,11 @@ function updateHoverPlane() {
 }
 function executeInput(inputValue) {
 
+      if (imageUpdate = true){
+imageUpdate = false;
+document.getElementById("entityImg").src = "tra.png";
+
+      }
 
 
 if (!isReturn) { inputlist = inputlist.concat(inputValue);}
@@ -361,6 +420,7 @@ inputValue = inputlist[inputlist.length - 1];
         const e = entities[inputValue];
         lines.push(inputValue.toUpperCase(),e.health, e.power, e.max, e.favoriteMoon);
         document.getElementById("entityImg").src = `images/entities/${e.image}`;
+        imageUpdate = true;
     } else if (inputValue !== "") {
         lines.push("Unknown command: " + inputValue, "For a list of commands type or click:","HELP");
     } 
@@ -382,7 +442,7 @@ inputValue = inputlist[inputlist.length - 1];
 
 // --- Commands ---
 const commands = {
-    help: () => ["Available commands:", "HELP", "STATUS", "ABOUT", "CLEAR", "entities", "MOONS"],
+    help: () => ["Available commands:", "HELP", "STATUS", "ABOUT", "CLEAR", "ENTITIES", "MOONS"],
     status: () => ["All systems operational."],
     about: () => ["Curved CRT terminal demo."],
     entities: () => ["BARBER", "BRACKEN", "BUNKER SPIDER", "BUTLER", "COIL-HEAD", "GHOST GIRL", "HOARDING BUG", "HYGRODERE", "JESTER", "MANEATER", "MASKED", "NUTCRACKER", "SNARE FLEA", "SPORE LIZARD", "THUMPER"],
@@ -516,10 +576,13 @@ renderer.domElement.addEventListener('click', (e) => {
     img.style.transform = `rotate(${knobRot}deg)`;
     // check if inside boundary
     
-        debug("a");
 
     
 });
+
+new ResizeObserver(syncRendererToCRT).observe(crtImg);
+window.addEventListener('resize', syncRendererToCRT);
+syncRendererToCRT();
 
 // --- Animation loop ---
 function animate() {
@@ -537,6 +600,8 @@ animate();
 
 // --- Initial render ---
 renderCanvas();
+
+
 </script>
 </body>
 </html>
