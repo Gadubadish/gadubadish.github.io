@@ -15,7 +15,8 @@ body {
     overflow: hidden;
     background: black url(images/background.jpeg) no-repeat;
     
-    background-size:  110%;
+    background-size:  150%;
+    background-position: -5vw -35vh;
 }
 canvas { display: block; }
 
@@ -31,13 +32,13 @@ canvas { display: block; }
       font-size:25px; padding:5px;pointer-events: none; z-index:1000;">
       </div id="UI">
 
-      <img id="crt"src="images/CRT.png"style="position:relative; top: 15vh; width: 80vw;" >
-      <img id = "img"; class = "UI"; src="images/CRTknob.png" style="position:absolute;  width: 80vw;" >
+      <img id="crt"src="images/CRT.png"style="position:relative; top: 15vh; width: 80vw; z-index: -1;" >
+      <img id = "img"; class = "UI"; src="images/CRTknob.png" style="position:absolute;  width: 80vw; z-index: 1;" >
       <img src="images/spectrumanalizer.png" style=" position: absolute; left: 67vw; top: 30vh; width: 20vw" >
       <div id="entityContainer" 
      style="position: absolute; 
-            left: 71.65vw; top: 41vh; 
-            width: 9vw; height: 23vh; 
+            left: 71.65vw; top: 41.5vh; 
+            width: 9vw; height: 21vh; 
             overflow: hidden; 
             border: 0px solid #0f0;"> <!-- optional border for debugging -->
 
@@ -97,9 +98,9 @@ const entities = {
   "butler": { health: "2(SP*)/8(MP*)", power: 2, max: 7, favoriteMoon: "7-dine", image: "Butler.jpg" },
   "coil-head": { health: "Invincible", power: 1, max: 5, favoriteMoon: "21-offense", image: "Coilhead.jpg" },
   "ghost girl": { health: "Invincible", power: 2, max: 1, favoriteMoon: "85-rend", image: "Ghostgirl.jpg" },
-  "hoarding bug": { health: 3, power: 1, max: 8, favoriteMoon: "5-embrion", image: "Hoardingbug.jpg" },
+  "hoarding bug": { health: 3, power: 1, max: 8, favoriteMoon: "5-embrion", image: "Hoardingbug.png" },
   "hygrodere": { health: "Invincible", power: 1, max: 2, favoriteMoon: "21-offense", image: "Hygrodere.jpg" },
-  "jester": { health: "Invincible", power: 3, max: 1, favoriteMoon: "85-rend", image: "Jester.jpg" },
+  "jester": { health: "Invincible", power: 3, max: 1, favoriteMoon: "85-rend", image: "Jester.png" },
   "maneater": { health: 5, power: 2, max: 1, favoriteMoon: "56-vow", image: "Maneater.jpg" },
   "masked": { health: 4, power: 1, max: 10, favoriteMoon: "68-artifice", image: "Masked.jpg" },
   "nutcracker": { health: 5, power: 1, max: 10, favoriteMoon: "85-rend", image: "Nutcracker.jpg" },
@@ -415,10 +416,10 @@ inputValue = inputlist[inputlist.length - 1];
         if (result && result.length) result.forEach(line => lines.push(line));
     } else if (inputValue in moons) {
         const m = moons[inputValue];
-        lines.push(inputValue.toUpperCase(),m.difficulty, m.cost, m.interiorLayout, m.mapPhoto);
+        lines.push(inputValue.toUpperCase(),"DIFFICULTY", m.difficulty,"COST", m.cost,"INTERIOR LAYOUT", m.interiorLayout, m.mapPhoto);
     } else if (inputValue in entities) {
         const e = entities[inputValue];
-        lines.push(inputValue.toUpperCase(),e.health, e.power, e.max, e.favoriteMoon);
+        lines.push(inputValue.toUpperCase(), "HEALTH",e.health,"POWER", e.power,"MAX SPAWNS", e.max,"FAVOURITE MOON", e.favoriteMoon);
         document.getElementById("entityImg").src = `images/entities/${e.image}`;
         imageUpdate = true;
     } else if (inputValue !== "") {
