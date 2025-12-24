@@ -32,7 +32,7 @@ canvas { display: block; }
       font-size:25px; padding:5px;pointer-events: none; z-index:1000;">
       </div id="UI">
 
-      <img id="crt"src="images/CRT.png"style="position:relative; top: 15vh; width: 80vw; z-index: -1;" >
+      <img id="crt"src="images/CRT.png"style="position:relative; top: 15vh; width: 80vw; z-index: ;" >
       <img id = "img"; class = "UI"; src="images/CRTknob.png" style="position:absolute;  width: 80vw; z-index: 1;" >
       <img src="images/spectrumanalizer.png" style=" position: absolute; left: 67vw; top: 30vh; width: 20vw" >
       <div id="entityContainer" 
@@ -74,10 +74,14 @@ let targetHoverScale = 0;  // target extrusion for hovered line
 const maxHoverScale = 0.05; // maximum extrusion
 const hoverLerpSpeed = 0.08; // how fast it interpolates
 
+let renderedLines = []; // { text, sourceIndex }
+
+let scrollOffset = 0;          // tracks which line is at the top
+const visibleLines = 21;       // number of lines visible on the terminal canvas
 
 
 let debugLines = [];
-let inputlist = [];
+let inputlist = ["help", "help", "help"];
 let inputValue = "";
 let placehold = "";
 let isReturn = false;
@@ -87,6 +91,7 @@ let knobRot = 0;
 const crtImg = document.getElementById('crt');
 
 const r = crtImg.getBoundingClientRect();
+
 
 
 
@@ -100,8 +105,9 @@ const entities = {
   "ghost girl": { health: "Invincible", power: 2, max: 1, favoriteMoon: "85-rend", image: "Ghostgirl.jpg" },
   "hoarding bug": { health: 3, power: 1, max: 8, favoriteMoon: "5-embrion", image: "Hoardingbug.png" },
   "hygrodere": { health: "Invincible", power: 1, max: 2, favoriteMoon: "21-offense", image: "Hygrodere.jpg" },
-  "jester": { health: "Invincible", power: 3, max: 1, favoriteMoon: "85-rend", image: "Jester.png" },
-  "maneater": { health: 5, power: 2, max: 1, favoriteMoon: "56-vow", image: "Maneater.jpg" },
+  "jester": { 
+    health: "Invincible", power: 3, max: 1, favoriteMoon: "85-rend", image: "Jester.png", 
+  },  "maneater": { health: 5, power: 2, max: 1, favoriteMoon: "56-vow", image: "Maneater.jpg" },
   "masked": { health: 4, power: 1, max: 10, favoriteMoon: "68-artifice", image: "Masked.jpg" },
   "nutcracker": { health: 5, power: 1, max: 10, favoriteMoon: "85-rend", image: "Nutcracker.jpg" },
   "snare flea": { health: 3, power: 1, max: 4, favoriteMoon: "220-assurance", image: "Snareflea.jpg" },
@@ -128,6 +134,23 @@ const moons = {
   "5-embrion": { difficulty: "-", cost: 0, interiorLayout: "-", mapPhoto: "5-embrion" },
   "68-artifice": { difficulty: "-", cost: 0, interiorLayout: "-", mapPhoto: "68-artifice" }
 };
+
+
+fetch("dataset.json")
+  .then(res => res.json())
+  .then(data => {
+    Object.keys(entities).forEach(key => {
+      const formattedKey = key.charAt(0).toUpperCase() + key.slice(1);
+
+      const entityInfo = data.entities?.[formattedKey];
+
+      if (entityInfo) {
+        entities[key].info = entityInfo;
+      }
+    });
+
+    console.log(entities);
+  });
 
 
 // --- Audio ---
@@ -265,6 +288,26 @@ hoverPlane = new THREE.Mesh(hoverGeometry, hoverMaterial);
 hoverPlane.visible = false;
 scene.add(hoverPlane);
 
+
+function wrapText(ctx, text, maxWidth) {
+    const words = text.split(" ");
+    const lines = [];
+    let current = "";
+
+    for (let word of words) {
+        const test = current ? current + " " + word : word;
+        if (ctx.measureText(test).width > maxWidth && current) {
+            lines.push(current);
+            current = word;
+        } else {
+            current = test;
+        }
+    }
+    if (current) lines.push(current);
+    return lines;
+}
+
+
 // --- Terminal text setup ---
 let lines = ["For a list of commands type or click:", "HELP"];
 let currentInput = "";
@@ -319,50 +362,83 @@ async function startupAnimation() {
 // --- Hover plane render ---
 function renderHoverCanvas() {
     hoverCtx.clearRect(0, 0, hoverCanvas.width, hoverCanvas.height);
+
     if (hoveredLine === -1) {
         hoverPlane.visible = false;
         return;
     }
+
     hoverPlane.visible = true;
     hoverCtx.font = '25px monospace';
     hoverCtx.fillStyle = '#00AD20';
     hoverCtx.shadowColor = '#00AD20';
     hoverCtx.shadowBlur = 18;
 
-    if (hoveredLine < lines.length) {
-        hoverCtx.fillText(lines[hoveredLine], leftPadding, firstLineY + hoveredLine * lineHeight);
-    } else {
-        hoverCtx.fillText("< " + currentInput , leftPadding, inputBaselineOffset + lines.length * lineHeight);
+    let y = firstLineY;
+    const startRow = scrollOffset;
+    const endRow = Math.min(scrollOffset + visibleLines, renderedLines.length);
+
+    for (let i = startRow; i < endRow; i++) {
+        const row = renderedLines[i];
+        if (row.sourceIndex === hoveredLine || (hoveredLine === lines.length && row.sourceIndex === lines.length-0)) {
+            hoverCtx.fillText(row.text, leftPadding, y);
+        }
+        y += lineHeight;
     }
+
+    // Input line hover
+   
 
     hoverTexture.needsUpdate = true;
 }
 
+
 // --- Render function ---
 function renderCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if(plane.visible) {
-        ctx.font = '25px monospace';
-        for (let i = 0; i < lines.length; i++) {
-            if (i === hoveredLine) continue; // skip hovered line
-            ctx.fillStyle = '#00ff00';
-            ctx.shadowColor = '#00ff00';
-            ctx.shadowBlur = 15;
-            ctx.fillText(lines[i], leftPadding, firstLineY + i * lineHeight);
-        }
-        if (hoveredLine !== lines.length) {
-            ctx.fillStyle = '#00ff00';
-            ctx.shadowColor = '#00ff00';
-            ctx.shadowBlur = 0;
-            ctx.fillText("> " + currentInput + "_", leftPadding, inputBaselineOffset + lines.length * lineHeight);
-        }
+    renderedLines = [];
 
-        drawScanlines(ctx, canvas.width, canvas.height, 6);
+    if (!plane.visible) return;
+
+    ctx.font = '25px monospace';
+    ctx.fillStyle = '#00ff00';
+    ctx.shadowColor = '#00ff00';
+    ctx.shadowBlur = 15;
+
+    const maxTextWidth = canvas.width - leftPadding * 2;
+
+    // Build renderedLines for all lines (with wrapping)
+    for (let i = 0; i < lines.length; i++) {
+        const wrapped = wrapText(ctx, lines[i], maxTextWidth);
+        for (let w = 0; w < wrapped.length; w++) {
+            renderedLines.push({ text: wrapped[w], sourceIndex: i });
+        }
     }
+
+    // Draw only visible rows
+    let y = firstLineY;
+    const startRow = scrollOffset;
+    const endRow = Math.min(scrollOffset + visibleLines, renderedLines.length);
+
+    for (let i = startRow; i < endRow; i++) {
+        const row = renderedLines[i];
+        if (row.sourceIndex !== hoveredLine) ctx.fillText(row.text, leftPadding, y);
+        y += lineHeight;
+    }
+
+    // Draw input line below visible rows
+    ctx.shadowBlur = 0;
+    ctx.fillText("> " + currentInput + "_", leftPadding, y + inputBaselineOffset - lineHeight);
+
+    drawScanlines(ctx, canvas.width, canvas.height, 6);
     texture.needsUpdate = true;
 
-    renderHoverCanvas(); // render hovered line
+    renderHoverCanvas();
 }
+
+
+
+
 
 function updateHoverPlane() {
     currentHoverScale += (targetHoverScale - currentHoverScale) * hoverLerpSpeed;
@@ -376,6 +452,7 @@ function updateHoverPlane() {
     hoverGeometry.computeVertexNormals();
 }
 function executeInput(inputValue) {
+    scrollOffset = 0;
 
       if (imageUpdate = true){
 imageUpdate = false;
@@ -416,10 +493,25 @@ inputValue = inputlist[inputlist.length - 1];
         if (result && result.length) result.forEach(line => lines.push(line));
     } else if (inputValue in moons) {
         const m = moons[inputValue];
-        lines.push(inputValue.toUpperCase(),"DIFFICULTY", m.difficulty,"COST", m.cost,"INTERIOR LAYOUT", m.interiorLayout, m.mapPhoto);
+        lines.push(
+  inputValue.toUpperCase(),
+  "DIFFICULTY", String(m.difficulty),
+  "COST", String(m.cost),
+  "INTERIOR LAYOUT", String(m.interiorLayout),
+  String(m.mapPhoto)
+);
+
     } else if (inputValue in entities) {
         const e = entities[inputValue];
-        lines.push(inputValue.toUpperCase(), "HEALTH",e.health,"POWER", e.power,"MAX SPAWNS", e.max,"FAVOURITE MOON", e.favoriteMoon);
+       lines.push(
+  inputValue.toUpperCase(),
+  "HEALTH", String(e.health),
+  "POWER", String(e.power),
+  "MAX SPAWNS", String(e.max),
+  "FAVOURITE MOON", String(e.favoriteMoon),
+  "INFO", String(e.info || "")
+);
+
         document.getElementById("entityImg").src = `images/entities/${e.image}`;
         imageUpdate = true;
     } else if (inputValue !== "") {
@@ -427,7 +519,7 @@ inputValue = inputlist[inputlist.length - 1];
     } 
     inputValue = "";
     currentInput = "";
-    if (lines.length > 21) lines = lines.slice(lines.length - 21);
+    //if (lines.length > 21) lines = lines.slice(lines.length - 21);
     renderCanvas(); 
 
    
@@ -443,7 +535,7 @@ inputValue = inputlist[inputlist.length - 1];
 
 // --- Commands ---
 const commands = {
-    help: () => ["Available commands:", "HELP", "STATUS", "ABOUT", "CLEAR", "ENTITIES", "MOONS"],
+    help: () => ["[Tab] to go back", "Available commands:", "HELP", "STATUS", "ABOUT", "CLEAR", "ENTITIES", "MOONS"],
     status: () => ["All systems operational."],
     about: () => ["Curved CRT terminal demo."],
     entities: () => ["BARBER", "BRACKEN", "BUNKER SPIDER", "BUTLER", "COIL-HEAD", "GHOST GIRL", "HOARDING BUG", "HYGRODERE", "JESTER", "MANEATER", "MASKED", "NUTCRACKER", "SNARE FLEA", "SPORE LIZARD", "THUMPER"],
@@ -512,7 +604,10 @@ function onMouseMove(event) {
     if (intersects.length > 0 && intersects[0].uv) {
         const uv = intersects[0].uv;
         const canvasY = (1 - uv.y) * canvas.height;
-        const index = Math.floor((canvasY - firstLineY + lineHeight/2) / lineHeight);
+        const row = Math.floor((canvasY - firstLineY) / lineHeight) + scrollOffset;
+const index = renderedLines[row]?.sourceIndex ?? -1;
+
+
         const inputY = inputBaselineOffset + lines.length * lineHeight; 
         
         let newHovered = -1;
@@ -601,6 +696,28 @@ animate();
 
 // --- Initial render ---
 renderCanvas();
+
+window.addEventListener('wheel', (e) => {
+    const delta = Math.sign(e.deltaY);
+
+    // Allow scrolling through empty lines by assuming a minimum "virtual" line count
+    const totalRows = Math.max(renderedLines.length, visibleLines);
+    const maxOffset = totalRows - visibleLines;
+
+    scrollOffset += delta;
+    if (scrollOffset < 0) scrollOffset = 0;
+    if (scrollOffset > maxOffset) scrollOffset = maxOffset;
+
+    renderCanvas();
+    renderHoverCanvas();
+    e.preventDefault();
+}, { passive: false });
+
+
+
+
+
+
 
 
 </script>
