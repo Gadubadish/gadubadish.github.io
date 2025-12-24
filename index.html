@@ -535,11 +535,12 @@ inputValue = inputlist[inputlist.length - 1];
 
 // --- Commands ---
 const commands = {
-    help: () => ["[Tab] to go back", "Available commands:", "HELP", "STATUS", "ABOUT", "CLEAR", "ENTITIES", "MOONS"],
-    status: () => ["All systems operational."],
-    about: () => ["Curved CRT terminal demo."],
-    entities: () => ["BARBER", "BRACKEN", "BUNKER SPIDER", "BUTLER", "COIL-HEAD", "GHOST GIRL", "HOARDING BUG", "HYGRODERE", "JESTER", "MANEATER", "MASKED", "NUTCRACKER", "SNARE FLEA", "SPORE LIZARD", "THUMPER"],
-    moons: () => ["71-GORDION", "41-EXPERIMENTATION", "220-ASSURANCE", "56-VOW", "21-OFFENSE", "61-MARCH", "20-ADAMANCE", "85-REND", "7-DINE", "8-TITAN"],
+    help: () => ["[Tab] to go back", "Available commands:", "HELP", "ABOUT", "CLEAR", "ENTITIES", "MOONS"],
+    
+    about: () => [`Lethal Company es un juego centrado en la recolección de chatarra. Con una nave autopilotada te diriges a unas lunas llenas de entidades hostiles, y tu objetivo es explorar instalaciones abandonadas que contienen estas. Esto con el objetivo de recolectar la mayor cantidad de chatarra posible y vendérsela a una misteriosa organización, conocida simplemente como "La Compañía", para cumplir con su cuota de tres días. La cuota aumenta cada vez, y siempre tienes tres días en el juego para completarla. Vender chatarra antes te da menos: el 53% de su valor el primer día, el 77% el segundo y el 100% el tercero. Si el jugador falla en completar la cuota, el usuario perderá la partida y empezará una nueva. Cualquier chatarra que vendas por encima de la cuota requerida te recompensa con créditos adicionales.
+`,"", `Con el dinero que ganes vendiendo chatarra, puedes comprar equipo para mejorar tus incursiones. Como una linterna, una pala o una mochila. También podrás adquirir mejoras para tu nave, como un teletransportador. Otra opción es comprar combustible extra para viajar a lunas nuevas o incluso conseguir decoraciones para personalizar tu nave.`],
+    entities: () => Object.keys(entities).map(name => name.toUpperCase()),
+    moons: () => Object.keys(moons).map(name => name.toUpperCase()),
 
     clear: () => { lines = []; return ["Terminal cleared."]; }
 };
